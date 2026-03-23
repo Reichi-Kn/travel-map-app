@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ふたりの旅マップ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root {
+  --green: #1D9E75;
+  --green-light: #9FE1CB;
+  --green-dark: #085041;
+  --amber: #EF9F27;
+  --amber-light: #FAEEDA;
+  --amber-dark: #854F0B;
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --border: rgba(0,0,0,0.10);
+  --border-med: rgba(0,0,0,0.18);
+  --text: #1a1a1a;
+  --text-sub: #666;
+  --text-hint: #aaa;
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+
+.header { padding: 10px 14px; background: var(--surface); border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
+.stats { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+.stats .v { color: var(--green); font-weight: 600; }
+.stats .w { color: var(--amber); font-weight: 600; }
+.btn-share { background: var(--bg); border: 0.5px solid var(--border-med); border-radius: 8px; padding: 6px 11px; font-size: 12px; cursor: pointer; color: var(--text); white-space: nowrap; font-family: inherit; }
+
+.tabs { display: flex; background: var(--surface); border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+.tab { flex: 1; padding: 9px 4px; text-align: center; font-size: 12px; cursor: pointer; color: var(--text-sub); border-bottom: 2px solid transparent; transition: color .15s; user-select: none; }
+.tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+
+.view { flex: 1; overflow: hidden; display: none; flex-direction: column; }
+.view.active { display: flex; }
+
+#map-container { flex: 1; overflow: hidden; position: relative; background: #ddeef5; }
+#map-svg { width: 100%; height: 100%; }
+.pref { cursor: pointer; transition: opacity .15s; }
+.pref:hover { opacity: .72; }
+.pref-label { pointer-events: none; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; }
+.map-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--text-sub); font-size: 13px; background: #ddeef5; }
+.spinner { width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.map-legend { position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,.9); border: 0.5px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 10px; display: flex; flex-direction: column; gap: 4px; }
+.legend-row { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.tooltip { position: absolute; background: var(--surface); border: 0.5px solid var(--border-med); border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; pointer-events: none; display: none; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
+
+.list-wrap { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+.section-head { font-size: 11px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: .6px; margin: 14px 0 7px; padding-bottom: 5px; border-bottom: 0.5px solid var(--border); }
+.section-head:first-child { margin-top: 0; }
+.pref-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; display: flex; align-items: stretch; cursor: pointer; }
+.pref-card:active { opacity: .75; }
+.card-thumb { width: 68px; height: 68px; object-fit: cover; flex-shrink: 0; }
+.card-no-thumb { width: 68px; height: 68px; background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.card-body { flex: 1; padding: 10px 13px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.card-name { font-size: 15px; font-weight: 600; }
+.card-date { font-size: 11px; color: var(--text-sub); }
+.card-memo { font-size: 11px; color: var(--text-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.card-photos { font-size: 10px; color: var(--green); }
+.empty { text-align: center; padding: 48px 20px; color: var(--text-sub); font-size: 13px; line-height: 2.2; }
+
+.wish-wrap { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+.wish-hint { font-size: 12px; color: var(--text-sub); margin-bottom: 10px; }
+.wish-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.wish-item { background: var(--surface); border: 0.5px solid var(--border); border-radius: 9px; padding: 10px 6px; text-align: center; cursor: pointer; position: relative; transition: background .15s, border-color .15s; user-select: none; }
+.wish-item.on { border-color: var(--amber); background: var(--amber-light); }
+.wish-item.vis { border-color: var(--green); }
+.wi-name { font-size: 12px; font-weight: 600; }
+.wi-en { font-size: 9px; color: var(--text-hint); margin-top: 1px; }
+.wi-badge { position: absolute; top: 4px; right: 4px; font-size: 11px; }
+
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.48); z-index: 200; align-items: flex-end; justify-content: center; }
+.overlay.open { display: flex; }
+.sheet { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 500px; max-height: 90dvh; display: flex; flex-direction: column; }
+.sheet-handle { width: 38px; height: 4px; background: var(--border-med); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
+.sheet-header { padding: 13px 15px 11px; display: flex; align-items: center; justify-content: space-between; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
+.sheet-title { font-size: 17px; font-weight: 700; }
+.sheet-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+.sheet-close { background: var(--bg); border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; color: var(--text-sub); display: flex; align-items: center; justify-content: center; }
+.sheet-body { flex: 1; overflow-y: auto; padding: 15px; -webkit-overflow-scrolling: touch; }
+.field-label { font-size: 11px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.field-row { margin-bottom: 14px; }
+input[type=date], textarea { width: 100%; padding: 9px 11px; border: 0.5px solid var(--border-med); border-radius: 9px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; }
+textarea { resize: none; height: 70px; }
+input[type=date]:focus, textarea:focus { outline: none; border-color: var(--green); }
+.pg { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 15px; }
+.pt { aspect-ratio: 1; border-radius: 9px; overflow: hidden; position: relative; cursor: pointer; background: var(--bg); border: 0.5px solid var(--border); }
+.pt img { width: 100%; height: 100%; object-fit: cover; }
+.pt.sel { border: 2.5px solid var(--green); }
+.pt.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1.5px dashed var(--border-med); background: transparent; }
+.pt.add span { font-size: 22px; color: var(--text-hint); }
+.pt.add p { font-size: 9px; color: var(--text-hint); }
+.pt-badge { position: absolute; top: 3px; left: 3px; background: var(--green); color: #fff; font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: 700; }
+.pt-del { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,.52); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.action-row { display: flex; gap: 8px; padding-top: 4px; }
+.btn-primary { flex: 1; padding: 12px; background: var(--green); color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-primary:active { opacity: .85; }
+.btn-ghost { padding: 12px 14px; background: var(--bg); color: var(--text-sub); border: 0.5px solid var(--border-med); border-radius: 9px; font-size: 13px; cursor: pointer; font-family: inherit; }
+.share-card { background: var(--bg); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; border: 0.5px solid var(--border); }
+.share-card:hover { border-color: var(--green); }
+.share-card-title { font-size: 14px; font-weight: 700; }
+.share-card-sub { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+.btn-cancel { width: 100%; padding: 12px; background: transparent; border: 0.5px solid var(--border-med); border-radius: 9px; font-size: 14px; cursor: pointer; color: var(--text-sub); font-family: inherit; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🗾 ふたりの旅マップ</h1>
+    <div class="stats">訪問済み <span class="v" id="vc">0</span>/47 &nbsp;|&nbsp; 行きたい <span class="w" id="wc">0</span></div>
+  </div>
+  <button class="btn-share" id="btn-share">共有・保存</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="map">🗾 地図</div>
+  <div class="tab" data-tab="list">📋 一覧</div>
+  <div class="tab" data-tab="wish">⭐ 行きたい</div>
+</div>
+
+<div class="view active" id="view-map">
+  <div id="map-container">
+    <svg id="map-svg"></svg>
+    <div class="map-loading" id="map-loading">
+      <div class="spinner"></div>
+      <span>地図を読み込み中...</span>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="map-legend">
+      <div class="legend-row"><div class="legend-dot" style="background:var(--green-light);border:1px solid var(--green)"></div>訪問済み</div>
+      <div class="legend-row"><div class="legend-dot" style="background:var(--amber-light);border:1px solid var(--amber)"></div>行きたい</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#c5dde5;border:1px solid #90b8c4"></div>未訪問</div>
+    </div>
+  </div>
+</div>
+
+<div class="view" id="view-list">
+  <div class="list-wrap" id="list-wrap"></div>
+</div>
+
+<div class="view" id="view-wish">
+  <div class="wish-wrap">
+    <div class="wish-hint">タップして行きたい都道府県を登録しよう ⭐</div>
+    <div class="wish-grid" id="wish-grid"></div>
+  </div>
+</div>
+
+<!-- Prefecture modal -->
+<div class="overlay" id="pref-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div><div class="sheet-title" id="m-name"></div><div class="sheet-sub" id="m-en"></div></div>
+      <button class="sheet-close" id="m-close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field-row">
+        <div class="field-label">旅行日</div>
+        <input type="date" id="m-date">
+      </div>
+      <div class="field-row">
+        <div class="field-label">メモ</div>
+        <textarea id="m-memo" placeholder="思い出を残しておこう..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field-label">写真 <span id="m-pcount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-hint);font-size:11px"></span></div>
+        <div class="pg" id="m-photos"></div>
+        <input type="file" id="m-file" accept="image/*" multiple style="display:none">
+      </div>
+      <div class="action-row">
+        <button class="btn-ghost" id="m-del">削除</button>
+        <button class="btn-primary" id="m-save">保存する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Share modal -->
+<div class="overlay" id="share-modal">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-body" style="padding:18px">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">共有・保存</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:16px">旅の記録をシェアしよう</div>
+      <div class="share-card" id="sh-text">
+        <div class="share-card-title">📝 旅の記録をテキストでコピー</div>
+        <div class="share-card-sub">訪問した県・日付・メモをまとめてコピー。LINEなどに貼り付けられます</div>
+      </div>
+      <div class="share-card" id="sh-ss">
+        <div class="share-card-title">🗾 地図をスクリーンショットで保存</div>
+        <div class="share-card-sub">スマホ：ホーム＋電源 / Mac：⌘+Shift+4 / Win：PrintScreen</div>
+      </div>
+      <button class="btn-cancel" id="sh-close">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PREFS = [
+  {id:'hokkaido',name:'北海道',en:'Hokkaido'},
+  {id:'aomori',name:'青森',en:'Aomori'},{id:'iwate',name:'岩手',en:'Iwate'},
+  {id:'miyagi',name:'宮城',en:'Miyagi'},{id:'akita',name:'秋田',en:'Akita'},
+  {id:'yamagata',name:'山形',en:'Yamagata'},{id:'fukushima',name:'福島',en:'Fukushima'},
+  {id:'ibaraki',name:'茨城',en:'Ibaraki'},{id:'tochigi',name:'栃木',en:'Tochigi'},
+  {id:'gunma',name:'群馬',en:'Gunma'},{id:'saitama',name:'埼玉',en:'Saitama'},
+  {id:'chiba',name:'千葉',en:'Chiba'},{id:'tokyo',name:'東京',en:'Tokyo'},
+  {id:'kanagawa',name:'神奈川',en:'Kanagawa'},{id:'niigata',name:'新潟',en:'Niigata'},
+  {id:'toyama',name:'富山',en:'Toyama'},{id:'ishikawa',name:'石川',en:'Ishikawa'},
+  {id:'fukui',name:'福井',en:'Fukui'},{id:'yamanashi',name:'山梨',en:'Yamanashi'},
+  {id:'nagano',name:'長野',en:'Nagano'},{id:'gifu',name:'岐阜',en:'Gifu'},
+  {id:'shizuoka',name:'静岡',en:'Shizuoka'},{id:'aichi',name:'愛知',en:'Aichi'},
+  {id:'mie',name:'三重',en:'Mie'},{id:'shiga',name:'滋賀',en:'Shiga'},
+  {id:'kyoto',name:'京都',en:'Kyoto'},{id:'osaka',name:'大阪',en:'Osaka'},
+  {id:'hyogo',name:'兵庫',en:'Hyogo'},{id:'nara',name:'奈良',en:'Nara'},
+  {id:'wakayama',name:'和歌山',en:'Wakayama'},{id:'tottori',name:'鳥取',en:'Tottori'},
+  {id:'shimane',name:'島根',en:'Shimane'},{id:'okayama',name:'岡山',en:'Okayama'},
+  {id:'hiroshima',name:'広島',en:'Hiroshima'},{id:'yamaguchi',name:'山口',en:'Yamaguchi'},
+  {id:'tokushima',name:'徳島',en:'Tokushima'},{id:'kagawa',name:'香川',en:'Kagawa'},
+  {id:'ehime',name:'愛媛',en:'Ehime'},{id:'kochi',name:'高知',en:'Kochi'},
+  {id:'fukuoka',name:'福岡',en:'Fukuoka'},{id:'saga',name:'佐賀',en:'Saga'},
+  {id:'nagasaki',name:'長崎',en:'Nagasaki'},{id:'kumamoto',name:'熊本',en:'Kumamoto'},
+  {id:'oita',name:'大分',en:'Oita'},{id:'miyazaki',name:'宮崎',en:'Miyazaki'},
+  {id:'kagoshima',name:'鹿児島',en:'Kagoshima'},{id:'okinawa',name:'沖縄',en:'Okinawa'}
+];
+
+// GeoJSONのname_1 → アプリのid
+const NAME_MAP = {
+  'Hokkaido':'hokkaido','Aomori':'aomori','Iwate':'iwate','Miyagi':'miyagi',
+  'Akita':'akita','Yamagata':'yamagata','Fukushima':'fukushima','Ibaraki':'ibaraki',
+  'Tochigi':'tochigi','Gunma':'gunma','Saitama':'saitama','Chiba':'chiba',
+  'Tokyo':'tokyo','Kanagawa':'kanagawa','Niigata':'niigata','Toyama':'toyama',
+  'Ishikawa':'ishikawa','Fukui':'fukui','Yamanashi':'yamanashi','Nagano':'nagano',
+  'Gifu':'gifu','Shizuoka':'shizuoka','Aichi':'aichi','Mie':'mie','Shiga':'shiga',
+  'Kyoto':'kyoto','Osaka':'osaka','Hyogo':'hyogo','Nara':'nara','Wakayama':'wakayama',
+  'Tottori':'tottori','Shimane':'shimane','Okayama':'okayama','Hiroshima':'hiroshima',
+  'Yamaguchi':'yamaguchi','Tokushima':'tokushima','Kagawa':'kagawa','Ehime':'ehime',
+  'Kochi':'kochi','Fukuoka':'fukuoka','Saga':'saga','Nagasaki':'nagasaki',
+  'Kumamoto':'kumamoto','Oita':'oita','Miyazaki':'miyazaki','Kagoshima':'kagoshima',
+  'Okinawa':'okinawa'
+};
+
+function dispName(p) {
+  if (p.id==='hokkaido') return '北海道';
+  if (p.id==='tokyo') return '東京都';
+  if (['osaka','kyoto'].includes(p.id)) return p.name+'府';
+  return p.name+'県';
+}
+
+// ── ストレージ（localStorage） ──
+let prefData = {}, wishList = {};
+function loadData() {
+  try { const r=localStorage.getItem('jtm_app'); if(r){const d=JSON.parse(r);prefData=d.p||{};wishList=d.w||{};} } catch(e) {}
+}
+function saveData() {
+  try { localStorage.setItem('jtm_app', JSON.stringify({p:prefData,w:wishList})); } catch(e) {}
+}
+function isVisited(id) { const d=prefData[id]; return !!(d&&(d.photos?.length||d.date||d.memo)); }
+function updateCounts() {
+  document.getElementById('vc').textContent = PREFS.filter(p=>isVisited(p.id)).length;
+  document.getElementById('wc').textContent = Object.keys(wishList).filter(k=>wishList[k]).length;
+}
+
+// ── 地図 ──
+let geoData, svgEl, pathGen;
+
+function initMap() {
+  svgEl = d3.select('#map-svg');
+  fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
+    .then(r => { if(!r.ok) throw new Error(); return r.json(); })
+    .then(geo => {
+      geoData = geo;
+      document.getElementById('map-loading').style.display = 'none';
+      drawMap();
+      new ResizeObserver(drawMap).observe(document.getElementById('map-container'));
+    })
+    .catch(() => {
+      document.getElementById('map-loading').innerHTML =
+        '<span style="color:#c44;text-align:center;line-height:1.8">地図の読み込みに失敗しました<br>インターネット接続を確認してください</span>';
+    });
+}
+
+function drawMap() {
+  if (!geoData) return;
+  const cont = document.getElementById('map-container');
+  const W = cont.clientWidth, H = cont.clientHeight;
+  svgEl.attr('viewBox', `0 0 ${W} ${H}`);
+  const proj = d3.geoMercator().fitSize([W, H], geoData);
+  pathGen = d3.geoPath().projection(proj);
+
+  svgEl.selectAll('*').remove();
+  const defs = svgEl.append('defs');
+  const g = svgEl.append('g');
+
+  geoData.features.forEach(feat => {
+    const n1 = feat.properties.name_1 || feat.properties.NAME_1 || '';
+    const pid = NAME_MAP[n1];
+    if (!pid) return;
+    const pInfo = PREFS.find(p => p.id===pid);
+    if (!pInfo) return;
+
+    const visited = isVisited(pid);
+    const wished = wishList[pid];
+    const data = prefData[pid] || {};
+
+    if (visited && data.thumbnail) {
+      // クリップで写真を県の形に切り抜く
+      const clipId = 'clip-' + pid;
+      const clip = defs.append('clipPath').attr('id', clipId);
+      clip.append('path').attr('d', pathGen(feat));
+      const [[x0,y0],[x1,y1]] = pathGen.bounds(feat);
+
+      g.append('path').datum(feat).attr('d', pathGen)
+        .attr('fill','#1D9E75').attr('stroke','#0a5c40').attr('stroke-width', 0.8);
+
+      g.append('image')
+        .attr('href', data.thumbnail)
+        .attr('x',x0).attr('y',y0).attr('width',x1-x0).attr('height',y1-y0)
+        .attr('preserveAspectRatio','xMidYMid slice')
+        .attr('clip-path',`url(#${clipId})`);
+
+      g.append('path').datum(feat).attr('d', pathGen)
+        .attr('fill','transparent').attr('stroke','#0a5c40').attr('stroke-width',1)
+        .attr('class','pref')
+        .on('click', ()=>openModal(pInfo))
+        .on('mousemove', ev=>showTip(ev,dispName(pInfo)))
+        .on('mouseleave', hideTip);
+    } else {
+      const fill = visited ? '#9FE1CB' : wished ? '#FAEEDA' : '#c5dde5';
+      const stroke = visited ? '#1D9E75' : wished ? '#EF9F27' : '#90b8c4';
+      g.append('path').datum(feat).attr('d', pathGen)
+        .attr('fill', fill).attr('stroke', stroke)
+        .attr('stroke-width', (visited||wished) ? 1.2 : 0.5)
+        .attr('class','pref')
+        .on('click', ()=>openModal(pInfo))
+        .on('mousemove', ev=>showTip(ev,dispName(pInfo)))
+        .on('mouseleave', hideTip);
+    }
+
+    // ラベル（面積で判定）
+    const area = pathGen.area(feat);
+    if (area > 350) {
+      const [cx, cy] = pathGen.centroid(feat);
+      const fs = area > 5000 ? 10 : area > 1500 ? 8 : 7;
+      g.append('text')
+        .attr('x',cx).attr('y',cy)
+        .attr('text-anchor','middle').attr('dominant-baseline','middle')
+        .attr('class','pref-label')
+        .attr('font-size', fs)
+        .attr('fill', visited && data.thumbnail ? 'white' : visited ? '#085041' : wished ? '#854F0B' : '#4a7a88')
+        .attr('font-weight', visited ? '700' : '500')
+        .text(pInfo.name);
+    }
+  });
+}
+
+function showTip(ev, name) {
+  const tip = document.getElementById('tooltip');
+  const rect = document.getElementById('map-container').getBoundingClientRect();
+  tip.textContent = name;
+  tip.style.display = 'block';
+  let x = ev.clientX - rect.left + 12, y = ev.clientY - rect.top - 36;
+  if (x + 130 > rect.width) x = ev.clientX - rect.left - 140;
+  tip.style.left = x+'px'; tip.style.top = y+'px';
+}
+function hideTip() { document.getElementById('tooltip').style.display='none'; }
+
+// ── 一覧 ──
+function renderList() {
+  const wrap = document.getElementById('list-wrap');
+  const vis = PREFS.filter(p=>isVisited(p.id));
+  const wish = PREFS.filter(p=>wishList[p.id]&&!isVisited(p.id));
+  if (!vis.length && !wish.length) {
+    wrap.innerHTML = '<div class="empty">まだ記録がありません 🗺️<br>地図をタップして旅の思い出を残そう！</div>'; return;
+  }
+  let html = '';
+  if (vis.length) {
+    html += `<div class="section-head">訪問済み (${vis.length})</div>`;
+    vis.sort((a,b)=>(prefData[b.id]?.date||'').localeCompare(prefData[a.id]?.date||'')).forEach(p=>{
+      const d=prefData[p.id];
+      const thumb = d.thumbnail ? `<img class="card-thumb" src="${d.thumbnail}">` : `<div class="card-no-thumb">🗾</div>`;
+      const ds = d.date ? new Date(d.date+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}) : '';
+      html += `<div class="pref-card" onclick="openById('${p.id}')">${thumb}<div class="card-body"><div class="card-name">${dispName(p)}</div>${ds?`<div class="card-date">${ds}</div>`:''}${d.memo?`<div class="card-memo">${d.memo}</div>`:''}${d.photos?.length?`<div class="card-photos">写真 ${d.photos.length}枚</div>`:''}</div></div>`;
+    });
+  }
+  if (wish.length) {
+    html += `<div class="section-head">行きたいリスト (${wish.length})</div>`;
+    wish.forEach(p=>{html+=`<div class="pref-card" onclick="openById('${p.id}')"><div class="card-no-thumb">⭐</div><div class="card-body"><div class="card-name">${dispName(p)}</div><div class="card-date" style="color:var(--amber-dark)">行きたい！</div></div></div>`;});
+  }
+  wrap.innerHTML = html;
+}
+
+// ── 行きたい ──
+function renderWish() {
+  document.getElementById('wish-grid').innerHTML = PREFS.map(p=>{
+    const on=wishList[p.id], vis=isVisited(p.id);
+    return `<div class="wish-item${on?' on':''}${vis?' vis':''}" onclick="toggleWish('${p.id}')">${on?'<div class="wi-badge">⭐</div>':''}${vis?'<div class="wi-badge" style="color:var(--green)">✓</div>':''}<div class="wi-name">${p.name}</div><div class="wi-en">${p.en}</div></div>`;
+  }).join('');
+}
+window.toggleWish = id=>{
+  wishList[id]=!wishList[id]; if(!wishList[id]) delete wishList[id];
+  saveData(); updateCounts(); renderWish(); renderList(); drawMap();
+};
+
+// ── モーダル ──
+let curPref=null, curPhotos=[];
+window.openById = id=>{ const p=PREFS.find(x=>x.id===id); if(p) openModal(p); };
+
+function openModal(pref) {
+  curPref=pref;
+  const data=prefData[pref.id]||{};
+  curPhotos=(data.photos||[]).map(x=>({...x}));
+  document.getElementById('m-name').textContent=dispName(pref);
+  document.getElementById('m-en').textContent=pref.en;
+  document.getElementById('m-date').value=data.date||'';
+  document.getElementById('m-memo').value=data.memo||'';
+  renderPhotos();
+  document.getElementById('pref-modal').classList.add('open');
+}
+
+function renderPhotos() {
+  const grid=document.getElementById('m-photos');
+  const thumbId=(prefData[curPref.id]||{}).thumbnailId;
+  grid.innerHTML='';
+  document.getElementById('m-pcount').textContent=curPhotos.length?`${curPhotos.length}枚`:'';
+  curPhotos.forEach((ph,i)=>{
+    const div=document.createElement('div');
+    div.className='pt'+(ph.id===thumbId?' sel':'');
+    const img=document.createElement('img'); img.src=ph.data; div.appendChild(img);
+    if(ph.id===thumbId){const b=document.createElement('div');b.className='pt-badge';b.textContent='サムネ';div.appendChild(b);}
+    const del=document.createElement('button'); del.className='pt-del'; del.textContent='×';
+    del.onclick=e=>{e.stopPropagation();curPhotos.splice(i,1);renderPhotos();};
+    div.appendChild(del);
+    div.onclick=()=>{
+      if(!prefData[curPref.id])prefData[curPref.id]={};
+      prefData[curPref.id].thumbnailId=ph.id; prefData[curPref.id].thumbnail=ph.data;
+      renderPhotos();
+    };
+    grid.appendChild(div);
+  });
+  const add=document.createElement('div'); add.className='pt add';
+  add.innerHTML='<span>+</span><p>写真を追加</p>';
+  add.onclick=()=>document.getElementById('m-file').click();
+  grid.appendChild(add);
+}
+
+document.getElementById('m-file').addEventListener('change', e=>{
+  Array.from(e.target.files).forEach(f=>{
+    const r=new FileReader(); r.onload=ev=>{curPhotos.push({id:Date.now()+Math.random(),data:ev.target.result});renderPhotos();};
+    r.readAsDataURL(f);
+  }); e.target.value='';
+});
+
+document.getElementById('m-save').addEventListener('click', ()=>{
+  if(!prefData[curPref.id])prefData[curPref.id]={};
+  const d=prefData[curPref.id];
+  d.date=document.getElementById('m-date').value;
+  d.memo=document.getElementById('m-memo').value;
+  d.photos=curPhotos;
+  if(!d.thumbnailId&&curPhotos.length){d.thumbnailId=curPhotos[0].id;d.thumbnail=curPhotos[0].data;}
+  if(d.thumbnailId){
+    const f=curPhotos.find(x=>x.id===d.thumbnailId);
+    if(f)d.thumbnail=f.data;
+    else if(curPhotos.length){d.thumbnailId=curPhotos[0].id;d.thumbnail=curPhotos[0].data;}
+    else{d.thumbnail=null;d.thumbnailId=null;}
+  }
+  saveData(); updateCounts(); drawMap(); renderList(); renderWish();
+  document.getElementById('pref-modal').classList.remove('open');
+});
+
+document.getElementById('m-del').addEventListener('click', ()=>{
+  if(confirm(dispName(curPref)+'の記録を削除しますか？')){
+    delete prefData[curPref.id]; saveData(); updateCounts(); drawMap(); renderList(); renderWish();
+    document.getElementById('pref-modal').classList.remove('open');
+  }
+});
+document.getElementById('m-close').addEventListener('click',()=>document.getElementById('pref-modal').classList.remove('open'));
+document.getElementById('pref-modal').addEventListener('click',e=>{if(e.target===document.getElementById('pref-modal'))document.getElementById('pref-modal').classList.remove('open');});
+
+// ── 共有 ──
+document.getElementById('btn-share').addEventListener('click',()=>document.getElementById('share-modal').classList.add('open'));
+document.getElementById('sh-close').addEventListener('click',()=>document.getElementById('share-modal').classList.remove('open'));
+document.getElementById('share-modal').addEventListener('click',e=>{if(e.target===document.getElementById('share-modal'))document.getElementById('share-modal').classList.remove('open');});
+
+document.getElementById('sh-text').addEventListener('click',()=>{
+  const vis=PREFS.filter(p=>isVisited(p.id));
+  if(!vis.length){alert('まだ訪問済みの記録がありません');return;}
+  let t='🗾 ふたりの旅記録\n訪問済み: '+vis.length+' / 47 都道府県\n\n';
+  vis.sort((a,b)=>(prefData[a.id]?.date||'').localeCompare(prefData[b.id]?.date||'')).forEach(p=>{
+    const d=prefData[p.id]; t+='📍 '+dispName(p)+'\n';
+    if(d.date)t+='   日付: '+new Date(d.date+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'})+'\n';
+    if(d.memo)t+='   メモ: '+d.memo+'\n';
+    if(d.photos?.length)t+='   写真: '+d.photos.length+'枚\n'; t+='\n';
+  });
+  const wl=PREFS.filter(p=>wishList[p.id]);
+  if(wl.length){t+='\n⭐ 行きたいリスト ('+wl.length+'件)\n';wl.forEach(p=>{t+='   '+dispName(p)+'\n';});}
+  navigator.clipboard.writeText(t).then(()=>{alert('コピーしました！');document.getElementById('share-modal').classList.remove('open');}).catch(()=>prompt('コピーしてください:',t));
+});
+document.getElementById('sh-ss').addEventListener('click',()=>{
+  alert('スマホ：ホーム＋電源ボタン\nMac：⌘+Shift+4\nWindows：Win+Shift+S');
+  document.getElementById('share-modal').classList.remove('open');
+});
+
+// ── タブ ──
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.tab).classList.add('active');
+    if(tab.dataset.tab==='list')renderList();
+    if(tab.dataset.tab==='wish')renderWish();
+  });
+});
+
+// ── 初期化 ──
+loadData(); updateCounts(); renderWish(); initMap();
+</script>
+</body>
+</html>
