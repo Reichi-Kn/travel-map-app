@@ -4,122 +4,101 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ふたりの旅マップ</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 :root {
-  --green: #1D9E75;
-  --green-light: #9FE1CB;
-  --green-dark: #085041;
-  --amber: #EF9F27;
-  --amber-light: #FAEEDA;
-  --amber-dark: #854F0B;
-  --bg: #f4f3ef;
-  --surface: #ffffff;
-  --border: rgba(0,0,0,0.10);
-  --border-med: rgba(0,0,0,0.18);
-  --text: #1a1a1a;
-  --text-sub: #666;
-  --text-hint: #aaa;
-  --radius: 12px;
+  --green: #1D9E75; --green-l: #9FE1CB; --green-d: #085041;
+  --amber: #EF9F27; --amber-l: #FAEEDA; --amber-d: #854F0B;
+  --sea: #c8e8f0;
+  --bg: #f4f3ef; --surface: #fff;
+  --bd: rgba(0,0,0,.10); --bd2: rgba(0,0,0,.18);
+  --tx: #1a1a1a; --tx2: #666; --tx3: #aaa;
+  --r: 12px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
-
-.header { padding: 10px 14px; background: var(--surface); border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-.header h1 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; }
-.stats { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
-.stats .v { color: var(--green); font-weight: 600; }
-.stats .w { color: var(--amber); font-weight: 600; }
-.btn-share { background: var(--bg); border: 0.5px solid var(--border-med); border-radius: 8px; padding: 6px 11px; font-size: 12px; cursor: pointer; color: var(--text); white-space: nowrap; font-family: inherit; }
-
-.tabs { display: flex; background: var(--surface); border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
-.tab { flex: 1; padding: 9px 4px; text-align: center; font-size: 12px; cursor: pointer; color: var(--text-sub); border-bottom: 2px solid transparent; transition: color .15s; user-select: none; }
-.tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
-
-.view { flex: 1; overflow: hidden; display: none; flex-direction: column; }
-.view.active { display: flex; }
-
-#map-container { flex: 1; overflow: hidden; position: relative; background: #ddeef5; }
-#map-svg { width: 100%; height: 100%; }
-.pref { cursor: pointer; transition: opacity .15s; }
-.pref:hover { opacity: .72; }
-.pref-label { pointer-events: none; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; }
-.map-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; color: var(--text-sub); font-size: 13px; background: #ddeef5; }
-.spinner { width: 28px; height: 28px; border: 2.5px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.map-legend { position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,.9); border: 0.5px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 10px; display: flex; flex-direction: column; gap: 4px; }
-.legend-row { display: flex; align-items: center; gap: 6px; }
-.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
-.tooltip { position: absolute; background: var(--surface); border: 0.5px solid var(--border-med); border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; pointer-events: none; display: none; white-space: nowrap; box-shadow: 0 2px 10px rgba(0,0,0,.1); }
-
-.list-wrap { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
-.section-head { font-size: 11px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: .6px; margin: 14px 0 7px; padding-bottom: 5px; border-bottom: 0.5px solid var(--border); }
-.section-head:first-child { margin-top: 0; }
-.pref-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; display: flex; align-items: stretch; cursor: pointer; }
-.pref-card:active { opacity: .75; }
-.card-thumb { width: 68px; height: 68px; object-fit: cover; flex-shrink: 0; }
-.card-no-thumb { width: 68px; height: 68px; background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-.card-body { flex: 1; padding: 10px 13px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
-.card-name { font-size: 15px; font-weight: 600; }
-.card-date { font-size: 11px; color: var(--text-sub); }
-.card-memo { font-size: 11px; color: var(--text-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
-.card-photos { font-size: 10px; color: var(--green); }
-.empty { text-align: center; padding: 48px 20px; color: var(--text-sub); font-size: 13px; line-height: 2.2; }
-
-.wish-wrap { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
-.wish-hint { font-size: 12px; color: var(--text-sub); margin-bottom: 10px; }
-.wish-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-.wish-item { background: var(--surface); border: 0.5px solid var(--border); border-radius: 9px; padding: 10px 6px; text-align: center; cursor: pointer; position: relative; transition: background .15s, border-color .15s; user-select: none; }
-.wish-item.on { border-color: var(--amber); background: var(--amber-light); }
-.wish-item.vis { border-color: var(--green); }
-.wi-name { font-size: 12px; font-weight: 600; }
-.wi-en { font-size: 9px; color: var(--text-hint); margin-top: 1px; }
-.wi-badge { position: absolute; top: 4px; right: 4px; font-size: 11px; }
-
-.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.48); z-index: 200; align-items: flex-end; justify-content: center; }
-.overlay.open { display: flex; }
-.sheet { background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 500px; max-height: 90dvh; display: flex; flex-direction: column; }
-.sheet-handle { width: 38px; height: 4px; background: var(--border-med); border-radius: 2px; margin: 10px auto 0; flex-shrink: 0; }
-.sheet-header { padding: 13px 15px 11px; display: flex; align-items: center; justify-content: space-between; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
-.sheet-title { font-size: 17px; font-weight: 700; }
-.sheet-sub { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
-.sheet-close { background: var(--bg); border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; color: var(--text-sub); display: flex; align-items: center; justify-content: center; }
-.sheet-body { flex: 1; overflow-y: auto; padding: 15px; -webkit-overflow-scrolling: touch; }
-.field-label { font-size: 11px; font-weight: 600; color: var(--text-sub); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.field-row { margin-bottom: 14px; }
-input[type=date], textarea { width: 100%; padding: 9px 11px; border: 0.5px solid var(--border-med); border-radius: 9px; background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; }
-textarea { resize: none; height: 70px; }
-input[type=date]:focus, textarea:focus { outline: none; border-color: var(--green); }
-.pg { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 15px; }
-.pt { aspect-ratio: 1; border-radius: 9px; overflow: hidden; position: relative; cursor: pointer; background: var(--bg); border: 0.5px solid var(--border); }
-.pt img { width: 100%; height: 100%; object-fit: cover; }
-.pt.sel { border: 2.5px solid var(--green); }
-.pt.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 1.5px dashed var(--border-med); background: transparent; }
-.pt.add span { font-size: 22px; color: var(--text-hint); }
-.pt.add p { font-size: 9px; color: var(--text-hint); }
-.pt-badge { position: absolute; top: 3px; left: 3px; background: var(--green); color: #fff; font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: 700; }
-.pt-del { position: absolute; top: 3px; right: 3px; background: rgba(0,0,0,.52); color: #fff; border: none; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.action-row { display: flex; gap: 8px; padding-top: 4px; }
-.btn-primary { flex: 1; padding: 12px; background: var(--green); color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
-.btn-primary:active { opacity: .85; }
-.btn-ghost { padding: 12px 14px; background: var(--bg); color: var(--text-sub); border: 0.5px solid var(--border-med); border-radius: 9px; font-size: 13px; cursor: pointer; font-family: inherit; }
-.share-card { background: var(--bg); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; border: 0.5px solid var(--border); }
-.share-card:hover { border-color: var(--green); }
-.share-card-title { font-size: 14px; font-weight: 700; }
-.share-card-sub { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
-.btn-cancel { width: 100%; padding: 12px; background: transparent; border: 0.5px solid var(--border-med); border-radius: 9px; font-size: 14px; cursor: pointer; color: var(--text-sub); font-family: inherit; margin-top: 4px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;background:var(--bg);color:var(--tx);height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+.header{padding:10px 14px;background:var(--surface);border-bottom:.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header h1{font-size:15px;font-weight:600}
+.stats{font-size:11px;color:var(--tx2);margin-top:2px}
+.stats .v{color:var(--green);font-weight:600}.stats .w{color:var(--amber);font-weight:600}
+.btn-sh{background:var(--bg);border:.5px solid var(--bd2);border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer;color:var(--tx);font-family:inherit}
+.tabs{display:flex;background:var(--surface);border-bottom:.5px solid var(--bd);flex-shrink:0}
+.tab{flex:1;padding:9px 4px;text-align:center;font-size:12px;cursor:pointer;color:var(--tx2);border-bottom:2px solid transparent;user-select:none}
+.tab.active{color:var(--green);border-bottom-color:var(--green);font-weight:600}
+.view{flex:1;overflow:hidden;display:none;flex-direction:column}
+.view.active{display:flex}
+#map-wrap{flex:1;overflow:hidden;position:relative;background:var(--sea)}
+#map-svg{width:100%;height:100%}
+.pref{cursor:pointer;transition:opacity .15s}
+.pref:hover{opacity:.72}
+.pref-lbl{pointer-events:none;font-family:'Hiragino Sans','Yu Gothic UI',sans-serif}
+.legend{position:absolute;bottom:10px;left:10px;background:rgba(255,255,255,.92);border:.5px solid var(--bd);border-radius:8px;padding:7px 10px;font-size:10px;display:flex;flex-direction:column;gap:4px}
+.lg-row{display:flex;align-items:center;gap:6px}
+.lg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.tip{position:absolute;background:var(--surface);border:.5px solid var(--bd2);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;pointer-events:none;display:none;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.list-wrap{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.sh{font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 7px;padding-bottom:5px;border-bottom:.5px solid var(--bd)}
+.sh:first-child{margin-top:0}
+.pc{background:var(--surface);border:.5px solid var(--bd);border-radius:var(--r);margin-bottom:8px;overflow:hidden;display:flex;align-items:stretch;cursor:pointer}
+.pc:active{opacity:.75}
+.pt{width:68px;height:68px;object-fit:cover;flex-shrink:0}
+.pn{width:68px;height:68px;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px}
+.pb{flex:1;padding:10px 13px;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.pb-name{font-size:15px;font-weight:600}
+.pb-date{font-size:11px;color:var(--tx2)}
+.pb-memo{font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.pb-ph{font-size:10px;color:var(--green)}
+.empty{text-align:center;padding:48px 20px;color:var(--tx2);font-size:13px;line-height:2.2}
+.wish-wrap{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.wh{font-size:12px;color:var(--tx2);margin-bottom:10px}
+.wg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.wi{background:var(--surface);border:.5px solid var(--bd);border-radius:9px;padding:10px 6px;text-align:center;cursor:pointer;position:relative;user-select:none}
+.wi.on{border-color:var(--amber);background:var(--amber-l)}
+.wi.vis{border-color:var(--green)}
+.win{font-size:12px;font-weight:600}
+.wie{font-size:9px;color:var(--tx3);margin-top:1px}
+.wib{position:absolute;top:4px;right:4px;font-size:11px}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:200;align-items:flex-end;justify-content:center}
+.ov.open{display:flex}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:500px;max-height:90dvh;display:flex;flex-direction:column}
+.hdl{width:38px;height:4px;background:var(--bd2);border-radius:2px;margin:10px auto 0;flex-shrink:0}
+.s-head{padding:13px 15px 11px;display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid var(--bd);flex-shrink:0}
+.s-title{font-size:17px;font-weight:700}
+.s-sub{font-size:11px;color:var(--tx2);margin-top:2px}
+.s-close{background:var(--bg);border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--tx2);display:flex;align-items:center;justify-content:center}
+.s-body{flex:1;overflow-y:auto;padding:15px;-webkit-overflow-scrolling:touch}
+.fl{font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.fr{margin-bottom:14px}
+input[type=date],textarea{width:100%;padding:9px 11px;border:.5px solid var(--bd2);border-radius:9px;background:var(--bg);color:var(--tx);font-size:14px;font-family:inherit}
+textarea{resize:none;height:70px}
+input[type=date]:focus,textarea:focus{outline:none;border-color:var(--green)}
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:15px}
+.pit{aspect-ratio:1;border-radius:9px;overflow:hidden;position:relative;cursor:pointer;background:var(--bg);border:.5px solid var(--bd)}
+.pit img{width:100%;height:100%;object-fit:cover}
+.pit.sel{border:2.5px solid var(--green)}
+.pit.add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:1.5px dashed var(--bd2);background:transparent}
+.pit.add span{font-size:22px;color:var(--tx3)}
+.pit.add p{font-size:9px;color:var(--tx3)}
+.pt-b{position:absolute;top:3px;left:3px;background:var(--green);color:#fff;font-size:8px;padding:2px 5px;border-radius:4px;font-weight:700}
+.pt-d{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.52);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ar{display:flex;gap:8px;padding-top:4px}
+.bp{flex:1;padding:12px;background:var(--green);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.bp:active{opacity:.85}
+.bg{padding:12px 14px;background:var(--bg);color:var(--tx2);border:.5px solid var(--bd2);border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit}
+.sc{background:var(--bg);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer;border:.5px solid var(--bd)}
+.sc:hover{border-color:var(--green)}
+.sc-t{font-size:14px;font-weight:700}
+.sc-s{font-size:11px;color:var(--tx2);margin-top:3px}
+.bc{width:100%;padding:12px;background:transparent;border:.5px solid var(--bd2);border-radius:9px;font-size:14px;cursor:pointer;color:var(--tx2);font-family:inherit;margin-top:4px}
 </style>
 </head>
 <body>
-
 <div class="header">
   <div>
     <h1>🗾 ふたりの旅マップ</h1>
     <div class="stats">訪問済み <span class="v" id="vc">0</span>/47 &nbsp;|&nbsp; 行きたい <span class="w" id="wc">0</span></div>
   </div>
-  <button class="btn-share" id="btn-share">共有・保存</button>
+  <button class="btn-sh" id="btn-share">共有・保存</button>
 </div>
-
 <div class="tabs">
   <div class="tab active" data-tab="map">🗾 地図</div>
   <div class="tab" data-tab="list">📋 一覧</div>
@@ -127,388 +106,418 @@ input[type=date]:focus, textarea:focus { outline: none; border-color: var(--gree
 </div>
 
 <div class="view active" id="view-map">
-  <div id="map-container">
-    <svg id="map-svg"></svg>
-    <div class="map-loading" id="map-loading">
-      <div class="spinner"></div>
-      <span>地図を読み込み中...</span>
-    </div>
-    <div class="tooltip" id="tooltip"></div>
-    <div class="map-legend">
-      <div class="legend-row"><div class="legend-dot" style="background:var(--green-light);border:1px solid var(--green)"></div>訪問済み</div>
-      <div class="legend-row"><div class="legend-dot" style="background:var(--amber-light);border:1px solid var(--amber)"></div>行きたい</div>
-      <div class="legend-row"><div class="legend-dot" style="background:#c5dde5;border:1px solid #90b8c4"></div>未訪問</div>
+  <div id="map-wrap">
+    <svg id="map-svg" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid meet">
+      <defs id="svg-defs"></defs>
+      <g id="pref-g"></g>
+      <g id="lbl-g"></g>
+    </svg>
+    <div class="tip" id="tip"></div>
+    <div class="legend">
+      <div class="lg-row"><div class="lg-dot" style="background:var(--green-l);border:1px solid var(--green)"></div>訪問済み</div>
+      <div class="lg-row"><div class="lg-dot" style="background:var(--amber-l);border:1px solid var(--amber)"></div>行きたい</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#daeef4;border:1px solid #a0c8d4"></div>未訪問</div>
     </div>
   </div>
 </div>
 
-<div class="view" id="view-list">
-  <div class="list-wrap" id="list-wrap"></div>
-</div>
+<div class="view" id="view-list"><div class="list-wrap" id="list-wrap"></div></div>
 
 <div class="view" id="view-wish">
   <div class="wish-wrap">
-    <div class="wish-hint">タップして行きたい都道府県を登録しよう ⭐</div>
-    <div class="wish-grid" id="wish-grid"></div>
+    <div class="wh">タップして行きたい都道府県を登録しよう ⭐</div>
+    <div class="wg" id="wish-grid"></div>
   </div>
 </div>
 
-<!-- Prefecture modal -->
-<div class="overlay" id="pref-modal">
+<!-- 都道府県モーダル -->
+<div class="ov" id="pref-ov">
   <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-header">
-      <div><div class="sheet-title" id="m-name"></div><div class="sheet-sub" id="m-en"></div></div>
-      <button class="sheet-close" id="m-close">✕</button>
+    <div class="hdl"></div>
+    <div class="s-head">
+      <div><div class="s-title" id="m-name"></div><div class="s-sub" id="m-en"></div></div>
+      <button class="s-close" id="m-close">✕</button>
     </div>
-    <div class="sheet-body">
-      <div class="field-row">
-        <div class="field-label">旅行日</div>
-        <input type="date" id="m-date">
-      </div>
-      <div class="field-row">
-        <div class="field-label">メモ</div>
-        <textarea id="m-memo" placeholder="思い出を残しておこう..."></textarea>
-      </div>
-      <div class="field-row">
-        <div class="field-label">写真 <span id="m-pcount" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-hint);font-size:11px"></span></div>
+    <div class="s-body">
+      <div class="fr"><div class="fl">旅行日</div><input type="date" id="m-date"></div>
+      <div class="fr"><div class="fl">メモ</div><textarea id="m-memo" placeholder="思い出を残しておこう..."></textarea></div>
+      <div class="fr">
+        <div class="fl">写真 <span id="m-pc" style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--tx3);font-size:11px"></span></div>
         <div class="pg" id="m-photos"></div>
         <input type="file" id="m-file" accept="image/*" multiple style="display:none">
       </div>
-      <div class="action-row">
-        <button class="btn-ghost" id="m-del">削除</button>
-        <button class="btn-primary" id="m-save">保存する</button>
-      </div>
+      <div class="ar"><button class="bg" id="m-del">削除</button><button class="bp" id="m-save">保存する</button></div>
     </div>
   </div>
 </div>
 
-<!-- Share modal -->
-<div class="overlay" id="share-modal">
+<!-- 共有モーダル -->
+<div class="ov" id="share-ov">
   <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-body" style="padding:18px">
+    <div class="hdl"></div>
+    <div class="s-body" style="padding:18px">
       <div style="font-size:16px;font-weight:700;margin-bottom:4px">共有・保存</div>
-      <div style="font-size:12px;color:var(--text-sub);margin-bottom:16px">旅の記録をシェアしよう</div>
-      <div class="share-card" id="sh-text">
-        <div class="share-card-title">📝 旅の記録をテキストでコピー</div>
-        <div class="share-card-sub">訪問した県・日付・メモをまとめてコピー。LINEなどに貼り付けられます</div>
-      </div>
-      <div class="share-card" id="sh-ss">
-        <div class="share-card-title">🗾 地図をスクリーンショットで保存</div>
-        <div class="share-card-sub">スマホ：ホーム＋電源 / Mac：⌘+Shift+4 / Win：PrintScreen</div>
-      </div>
-      <button class="btn-cancel" id="sh-close">キャンセル</button>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:16px">旅の記録をシェアしよう</div>
+      <div class="sc" id="sh-text"><div class="sc-t">📝 旅の記録をテキストでコピー</div><div class="sc-s">訪問した県・日付・メモをまとめてコピー。LINEなどに貼り付けられます</div></div>
+      <div class="sc" id="sh-ss"><div class="sc-t">🗾 地図をスクリーンショットで保存</div><div class="sc-s">スマホ：ホーム＋電源 / Mac：⌘+Shift+4 / Win：Win+Shift+S</div></div>
+      <button class="bc" id="sh-close">キャンセル</button>
     </div>
   </div>
 </div>
 
 <script>
+// ===== 都道府県データ =====
 const PREFS = [
-  {id:'hokkaido',name:'北海道',en:'Hokkaido'},
-  {id:'aomori',name:'青森',en:'Aomori'},{id:'iwate',name:'岩手',en:'Iwate'},
-  {id:'miyagi',name:'宮城',en:'Miyagi'},{id:'akita',name:'秋田',en:'Akita'},
-  {id:'yamagata',name:'山形',en:'Yamagata'},{id:'fukushima',name:'福島',en:'Fukushima'},
-  {id:'ibaraki',name:'茨城',en:'Ibaraki'},{id:'tochigi',name:'栃木',en:'Tochigi'},
-  {id:'gunma',name:'群馬',en:'Gunma'},{id:'saitama',name:'埼玉',en:'Saitama'},
-  {id:'chiba',name:'千葉',en:'Chiba'},{id:'tokyo',name:'東京',en:'Tokyo'},
-  {id:'kanagawa',name:'神奈川',en:'Kanagawa'},{id:'niigata',name:'新潟',en:'Niigata'},
-  {id:'toyama',name:'富山',en:'Toyama'},{id:'ishikawa',name:'石川',en:'Ishikawa'},
-  {id:'fukui',name:'福井',en:'Fukui'},{id:'yamanashi',name:'山梨',en:'Yamanashi'},
-  {id:'nagano',name:'長野',en:'Nagano'},{id:'gifu',name:'岐阜',en:'Gifu'},
-  {id:'shizuoka',name:'静岡',en:'Shizuoka'},{id:'aichi',name:'愛知',en:'Aichi'},
-  {id:'mie',name:'三重',en:'Mie'},{id:'shiga',name:'滋賀',en:'Shiga'},
-  {id:'kyoto',name:'京都',en:'Kyoto'},{id:'osaka',name:'大阪',en:'Osaka'},
-  {id:'hyogo',name:'兵庫',en:'Hyogo'},{id:'nara',name:'奈良',en:'Nara'},
-  {id:'wakayama',name:'和歌山',en:'Wakayama'},{id:'tottori',name:'鳥取',en:'Tottori'},
-  {id:'shimane',name:'島根',en:'Shimane'},{id:'okayama',name:'岡山',en:'Okayama'},
-  {id:'hiroshima',name:'広島',en:'Hiroshima'},{id:'yamaguchi',name:'山口',en:'Yamaguchi'},
-  {id:'tokushima',name:'徳島',en:'Tokushima'},{id:'kagawa',name:'香川',en:'Kagawa'},
-  {id:'ehime',name:'愛媛',en:'Ehime'},{id:'kochi',name:'高知',en:'Kochi'},
-  {id:'fukuoka',name:'福岡',en:'Fukuoka'},{id:'saga',name:'佐賀',en:'Saga'},
-  {id:'nagasaki',name:'長崎',en:'Nagasaki'},{id:'kumamoto',name:'熊本',en:'Kumamoto'},
-  {id:'oita',name:'大分',en:'Oita'},{id:'miyazaki',name:'宮崎',en:'Miyazaki'},
-  {id:'kagoshima',name:'鹿児島',en:'Kagoshima'},{id:'okinawa',name:'沖縄',en:'Okinawa'}
+  {id:'hokkaido',name:'北海道',en:'Hokkaido',lx:530,ly:100},
+  {id:'aomori',name:'青森',en:'Aomori',lx:468,ly:232},
+  {id:'iwate',name:'岩手',en:'Iwate',lx:482,ly:288},
+  {id:'miyagi',name:'宮城',en:'Miyagi',lx:477,ly:340},
+  {id:'akita',name:'秋田',en:'Akita',lx:455,ly:278},
+  {id:'yamagata',name:'山形',en:'Yamagata',lx:451,ly:340},
+  {id:'fukushima',name:'福島',en:'Fukushima',lx:453,ly:378},
+  {id:'ibaraki',name:'茨城',en:'Ibaraki',lx:462,ly:424},
+  {id:'tochigi',name:'栃木',en:'Tochigi',lx:445,ly:416},
+  {id:'gunma',name:'群馬',en:'Gunma',lx:428,ly:416},
+  {id:'saitama',name:'埼玉',en:'Saitama',lx:436,ly:439},
+  {id:'chiba',name:'千葉',en:'Chiba',lx:460,ly:460},
+  {id:'tokyo',name:'東京',en:'Tokyo',lx:438,ly:449},
+  {id:'kanagawa',name:'神奈川',en:'Kanagawa',lx:436,ly:463},
+  {id:'niigata',name:'新潟',en:'Niigata',lx:406,ly:370},
+  {id:'toyama',name:'富山',en:'Toyama',lx:381,ly:420},
+  {id:'ishikawa',name:'石川',en:'Ishikawa',lx:370,ly:398},
+  {id:'fukui',name:'福井',en:'Fukui',lx:357,ly:440},
+  {id:'yamanashi',name:'山梨',en:'Yamanashi',lx:412,ly:455},
+  {id:'nagano',name:'長野',en:'Nagano',lx:398,ly:430},
+  {id:'gifu',name:'岐阜',en:'Gifu',lx:376,ly:437},
+  {id:'shizuoka',name:'静岡',en:'Shizuoka',lx:406,ly:478},
+  {id:'aichi',name:'愛知',en:'Aichi',lx:381,ly:475},
+  {id:'mie',name:'三重',en:'Mie',lx:360,ly:500},
+  {id:'shiga',name:'滋賀',en:'Shiga',lx:351,ly:465},
+  {id:'kyoto',name:'京都',en:'Kyoto',lx:337,ly:460},
+  {id:'osaka',name:'大阪',en:'Osaka',lx:331,ly:484},
+  {id:'hyogo',name:'兵庫',en:'Hyogo',lx:315,ly:468},
+  {id:'nara',name:'奈良',en:'Nara',lx:339,ly:490},
+  {id:'wakayama',name:'和歌山',en:'Wakayama',lx:336,ly:516},
+  {id:'tottori',name:'鳥取',en:'Tottori',lx:296,ly:460},
+  {id:'shimane',name:'島根',en:'Shimane',lx:262,ly:465},
+  {id:'okayama',name:'岡山',en:'Okayama',lx:292,ly:488},
+  {id:'hiroshima',name:'広島',en:'Hiroshima',lx:262,ly:492},
+  {id:'yamaguchi',name:'山口',en:'Yamaguchi',lx:229,ly:502},
+  {id:'tokushima',name:'徳島',en:'Tokushima',lx:305,ly:514},
+  {id:'kagawa',name:'香川',en:'Kagawa',lx:300,ly:505},
+  {id:'ehime',name:'愛媛',en:'Ehime',lx:272,ly:518},
+  {id:'kochi',name:'高知',en:'Kochi',lx:275,ly:530},
+  {id:'fukuoka',name:'福岡',en:'Fukuoka',lx:210,ly:525},
+  {id:'saga',name:'佐賀',en:'Saga',lx:200,ly:534},
+  {id:'nagasaki',name:'長崎',en:'Nagasaki',lx:180,ly:548},
+  {id:'kumamoto',name:'熊本',en:'Kumamoto',lx:210,ly:547},
+  {id:'oita',name:'大分',en:'Oita',lx:230,ly:535},
+  {id:'miyazaki',name:'宮崎',en:'Miyazaki',lx:228,ly:575},
+  {id:'kagoshima',name:'鹿児島',en:'Kagoshima',lx:205,ly:590},
+  {id:'okinawa',name:'沖縄',en:'Okinawa',lx:143,ly:793},
 ];
 
-// GeoJSONのname_1 → アプリのid
-const NAME_MAP = {
-  'Hokkaido':'hokkaido','Aomori':'aomori','Iwate':'iwate','Miyagi':'miyagi',
-  'Akita':'akita','Yamagata':'yamagata','Fukushima':'fukushima','Ibaraki':'ibaraki',
-  'Tochigi':'tochigi','Gunma':'gunma','Saitama':'saitama','Chiba':'chiba',
-  'Tokyo':'tokyo','Kanagawa':'kanagawa','Niigata':'niigata','Toyama':'toyama',
-  'Ishikawa':'ishikawa','Fukui':'fukui','Yamanashi':'yamanashi','Nagano':'nagano',
-  'Gifu':'gifu','Shizuoka':'shizuoka','Aichi':'aichi','Mie':'mie','Shiga':'shiga',
-  'Kyoto':'kyoto','Osaka':'osaka','Hyogo':'hyogo','Nara':'nara','Wakayama':'wakayama',
-  'Tottori':'tottori','Shimane':'shimane','Okayama':'okayama','Hiroshima':'hiroshima',
-  'Yamaguchi':'yamaguchi','Tokushima':'tokushima','Kagawa':'kagawa','Ehime':'ehime',
-  'Kochi':'kochi','Fukuoka':'fukuoka','Saga':'saga','Nagasaki':'nagasaki',
-  'Kumamoto':'kumamoto','Oita':'oita','Miyazaki':'miyazaki','Kagoshima':'kagoshima',
-  'Okinawa':'okinawa'
+// ===== 精密SVGパス（緯度経度から生成） =====
+const PATHS = {
+'hokkaido':'M 475.5 33.7 L 525.8 78.9 L 596.3 83.4 L 576.1 132.2 L 551.0 136.6 L 538.4 180.0 L 488.1 167.1 L 457.9 145.3 L 445.3 154.0 L 437.7 136.6 L 462.9 110.1 L 470.5 83.4 L 488.1 47.4 L 475.5 33.7 Z',
+'aomori':'M 483.0 210.1 L 488.1 235.6 L 480.5 252.4 L 460.4 256.6 L 455.4 239.8 L 442.8 227.1 L 457.9 210.1 L 483.0 210.1 Z',
+'iwate':'M 495.6 252.4 L 495.6 294.2 L 485.5 314.8 L 480.5 323.0 L 465.4 318.9 L 462.9 298.3 L 470.5 281.7 L 480.5 265.0 L 495.6 252.4 Z',
+'miyagi':'M 490.6 323.0 L 485.5 347.5 L 473.0 355.7 L 462.9 343.5 L 462.9 327.1 L 470.5 323.0 L 490.6 323.0 Z',
+'akita':'M 467.9 265.0 L 473.0 290.0 L 467.9 310.7 L 452.8 306.6 L 442.8 290.0 L 442.8 256.6 L 455.4 252.4 L 467.9 265.0 Z',
+'yamagata':'M 462.9 323.0 L 467.9 339.4 L 457.9 363.8 L 445.3 355.7 L 440.3 339.4 L 447.8 327.1 L 462.9 323.0 Z',
+'fukushima':'M 475.5 363.8 L 475.5 387.9 L 465.4 396.0 L 445.3 400.0 L 430.2 396.0 L 425.2 383.9 L 430.2 363.8 L 450.3 355.7 L 475.5 363.8 Z',
+'ibaraki':'M 473.0 403.9 L 473.0 427.8 L 462.9 447.5 L 455.4 435.7 L 450.3 423.8 L 450.3 403.9 L 473.0 403.9 Z',
+'tochigi':'M 455.4 400.0 L 460.4 415.9 L 455.4 431.8 L 440.3 427.8 L 432.7 415.9 L 437.7 400.0 L 455.4 400.0 Z',
+'gunma':'M 440.3 403.9 L 445.3 419.9 L 440.3 431.8 L 420.1 431.8 L 415.1 419.9 L 420.1 403.9 L 440.3 403.9 Z',
+'saitama':'M 440.3 435.7 L 447.8 439.7 L 445.3 447.5 L 430.2 447.5 L 425.2 439.7 L 430.2 431.8 L 440.3 435.7 Z',
+'chiba':'M 473.0 439.7 L 470.5 475.0 L 450.3 478.9 L 445.3 471.1 L 445.3 455.4 L 455.4 443.6 L 473.0 439.7 Z',
+'tokyo':'M 447.8 443.6 L 447.8 451.5 L 437.7 455.4 L 430.2 451.5 L 435.2 443.6 L 447.8 443.6 Z',
+'kanagawa':'M 445.3 451.5 L 442.8 467.2 L 430.2 471.1 L 425.2 463.3 L 425.2 455.4 L 437.7 451.5 L 445.3 451.5 Z',
+'niigata':'M 425.2 343.5 L 430.2 363.8 L 420.1 387.9 L 405.0 396.0 L 389.9 403.9 L 384.9 387.9 L 395.0 363.8 L 407.5 351.6 L 425.2 343.5 Z',
+'toyama':'M 384.9 403.9 L 392.5 415.9 L 395.0 423.8 L 379.9 419.9 L 372.3 407.9 L 384.9 403.9 Z',
+'ishikawa':'M 384.9 375.9 L 382.4 396.0 L 377.4 407.9 L 364.8 415.9 L 362.3 403.9 L 362.3 387.9 L 369.8 375.9 L 384.9 375.9 Z',
+'fukui':'M 364.8 423.8 L 369.8 435.7 L 364.8 451.5 L 352.2 455.4 L 349.7 443.6 L 354.7 431.8 L 364.8 423.8 Z',
+'yamanashi':'M 422.6 443.6 L 427.7 451.5 L 420.1 467.2 L 405.0 471.1 L 400.0 455.4 L 407.5 443.6 L 422.6 443.6 Z',
+'nagano':'M 412.6 403.9 L 422.6 415.9 L 420.1 435.7 L 412.6 455.4 L 400.0 463.3 L 387.4 455.4 L 379.9 439.7 L 384.9 415.9 L 400.0 403.9 L 412.6 403.9 Z',
+'gifu':'M 379.9 415.9 L 389.9 423.8 L 395.0 439.7 L 382.4 455.4 L 369.8 455.4 L 362.3 443.6 L 367.3 427.8 L 379.9 415.9 Z',
+'shizuoka':'M 420.1 467.2 L 427.7 471.1 L 422.6 490.6 L 407.5 490.6 L 395.0 486.7 L 387.4 475.0 L 395.0 467.2 L 420.1 467.2 Z',
+'aichi':'M 395.0 467.2 L 392.5 482.8 L 382.4 490.6 L 369.8 482.8 L 369.8 467.2 L 382.4 459.3 L 395.0 467.2 Z',
+'mie':'M 369.8 482.8 L 372.3 498.3 L 362.3 521.5 L 354.7 513.8 L 352.2 498.3 L 359.7 486.7 L 369.8 482.8 Z',
+'shiga':'M 357.2 459.3 L 362.3 463.3 L 362.3 478.9 L 347.2 475.0 L 344.6 463.3 L 349.7 455.4 L 357.2 459.3 Z',
+'kyoto':'M 344.6 447.5 L 354.7 451.5 L 352.2 467.2 L 337.1 475.0 L 327.0 467.2 L 324.5 455.4 L 337.1 443.6 L 344.6 447.5 Z',
+'osaka':'M 339.6 478.9 L 342.1 490.6 L 329.5 494.4 L 324.5 486.7 L 329.5 478.9 L 339.6 478.9 Z',
+'hyogo':'M 334.6 451.5 L 344.6 455.4 L 339.6 471.1 L 332.1 482.8 L 319.5 478.9 L 304.4 482.8 L 299.4 471.1 L 311.9 459.3 L 334.6 451.5 Z',
+'nara':'M 349.7 486.7 L 352.2 498.3 L 342.1 506.0 L 334.6 502.2 L 329.5 490.6 L 337.1 478.9 L 349.7 486.7 Z',
+'wakayama':'M 349.7 506.0 L 349.7 521.5 L 339.6 536.8 L 327.0 529.2 L 324.5 513.8 L 334.6 506.0 L 349.7 506.0 Z',
+'tottori':'M 311.9 451.5 L 317.0 459.3 L 311.9 471.1 L 286.8 467.2 L 279.2 459.3 L 286.8 451.5 L 311.9 451.5 Z',
+'shimane':'M 279.2 459.3 L 261.6 459.3 L 249.0 475.0 L 236.5 482.8 L 233.9 467.2 L 244.0 455.4 L 261.6 451.5 L 279.2 459.3 Z',
+'okayama':'M 306.9 478.9 L 311.9 486.7 L 299.4 498.3 L 286.8 502.2 L 274.2 494.4 L 276.7 482.8 L 294.3 475.0 L 306.9 478.9 Z',
+'hiroshima':'M 274.2 482.8 L 279.2 494.4 L 269.2 506.0 L 249.0 509.9 L 244.0 498.3 L 249.0 486.7 L 261.6 478.9 L 274.2 482.8 Z',
+'yamaguchi':'M 244.0 494.4 L 241.5 509.9 L 228.9 517.6 L 218.8 513.8 L 216.3 502.2 L 223.9 490.6 L 236.5 486.7 L 244.0 494.4 Z',
+'tokushima':'M 319.5 506.0 L 311.9 517.6 L 299.4 525.3 L 291.8 513.8 L 299.4 502.2 L 319.5 506.0 Z',
+'kagawa':'M 314.5 502.2 L 306.9 509.9 L 291.8 509.9 L 286.8 502.2 L 299.4 494.4 L 314.5 502.2 Z',
+'ehime':'M 286.8 509.9 L 274.2 521.5 L 261.6 529.2 L 261.6 513.8 L 274.2 502.2 L 286.8 509.9 Z',
+'kochi':'M 291.8 525.3 L 279.2 536.8 L 269.2 540.7 L 261.6 529.2 L 274.2 517.6 L 291.8 525.3 Z',
+'fukuoka':'M 218.8 517.6 L 221.4 533.0 L 208.8 536.8 L 201.2 525.3 L 203.7 513.8 L 218.8 517.6 Z',
+'saga':'M 208.8 533.0 L 203.7 540.7 L 193.7 540.7 L 193.7 529.2 L 203.7 525.3 L 208.8 533.0 Z',
+'nagasaki':'M 193.7 540.7 L 186.1 552.1 L 176.1 559.7 L 168.5 552.1 L 173.5 536.8 L 186.1 529.2 L 193.7 540.7 Z',
+'kumamoto':'M 221.4 540.7 L 218.8 559.7 L 206.3 563.5 L 198.7 552.1 L 203.7 533.0 L 218.8 533.0 L 221.4 540.7 Z',
+'oita':'M 244.0 525.3 L 236.5 544.5 L 223.9 552.1 L 218.8 540.7 L 226.4 521.5 L 244.0 525.3 Z',
+'miyazaki':'M 241.5 559.7 L 236.5 582.5 L 223.9 597.5 L 218.8 586.2 L 223.9 563.5 L 236.5 552.1 L 241.5 559.7 Z',
+'kagoshima':'M 218.8 578.7 L 211.3 605.1 L 198.7 612.5 L 191.2 601.3 L 198.7 578.7 L 211.3 567.3 L 218.8 578.7 Z',
+'okinawa':'M 153.4 780.9 L 161.0 798.8 L 143.4 805.9 L 133.3 795.2 L 143.4 777.3 L 153.4 780.9 Z',
 };
 
+// ラベル位置（centroid相当）
+const LABEL_POS = {};
+PREFS.forEach(p => { LABEL_POS[p.id] = {x: p.lx, y: p.ly}; });
+
 function dispName(p) {
-  if (p.id==='hokkaido') return '北海道';
-  if (p.id==='tokyo') return '東京都';
-  if (['osaka','kyoto'].includes(p.id)) return p.name+'府';
+  if(p.id==='hokkaido') return '北海道';
+  if(p.id==='tokyo') return '東京都';
+  if(['osaka','kyoto'].includes(p.id)) return p.name+'府';
   return p.name+'県';
 }
 
-// ── ストレージ（localStorage） ──
-let prefData = {}, wishList = {};
-function loadData() {
-  try { const r=localStorage.getItem('jtm_app'); if(r){const d=JSON.parse(r);prefData=d.p||{};wishList=d.w||{};} } catch(e) {}
-}
-function saveData() {
-  try { localStorage.setItem('jtm_app', JSON.stringify({p:prefData,w:wishList})); } catch(e) {}
-}
-function isVisited(id) { const d=prefData[id]; return !!(d&&(d.photos?.length||d.date||d.memo)); }
-function updateCounts() {
-  document.getElementById('vc').textContent = PREFS.filter(p=>isVisited(p.id)).length;
-  document.getElementById('wc').textContent = Object.keys(wishList).filter(k=>wishList[k]).length;
+// ===== ストレージ =====
+let prefData={}, wishList={};
+function load(){try{const r=localStorage.getItem('jtm');if(r){const d=JSON.parse(r);prefData=d.p||{};wishList=d.w||{}}}catch(e){}}
+function save(){try{localStorage.setItem('jtm',JSON.stringify({p:prefData,w:wishList}))}catch(e){}}
+function isVis(id){const d=prefData[id];return !!(d&&(d.photos?.length||d.date||d.memo))}
+function updateCounts(){
+  document.getElementById('vc').textContent=PREFS.filter(p=>isVis(p.id)).length;
+  document.getElementById('wc').textContent=Object.keys(wishList).filter(k=>wishList[k]).length;
 }
 
-// ── 地図 ──
-let geoData, svgEl, pathGen;
+// ===== 地図描画 =====
+function drawMap(){
+  const g=document.getElementById('pref-g');
+  const lg=document.getElementById('lbl-g');
+  const defs=document.getElementById('svg-defs');
+  g.innerHTML=''; lg.innerHTML=''; defs.innerHTML='';
 
-function initMap() {
-  svgEl = d3.select('#map-svg');
-  fetch('https://raw.githubusercontent.com/dataofjapan/land/master/japan.geojson')
-    .then(r => { if(!r.ok) throw new Error(); return r.json(); })
-    .then(geo => {
-      geoData = geo;
-      document.getElementById('map-loading').style.display = 'none';
-      drawMap();
-      new ResizeObserver(drawMap).observe(document.getElementById('map-container'));
-    })
-    .catch(() => {
-      document.getElementById('map-loading').innerHTML =
-        '<span style="color:#c44;text-align:center;line-height:1.8">地図の読み込みに失敗しました<br>インターネット接続を確認してください</span>';
-    });
-}
+  PREFS.forEach(p=>{
+    const d=prefData[p.id]||{};
+    const vis=isVis(p.id), wish=wishList[p.id];
+    const pathD=PATHS[p.id]; if(!pathD) return;
 
-function drawMap() {
-  if (!geoData) return;
-  const cont = document.getElementById('map-container');
-  const W = cont.clientWidth, H = cont.clientHeight;
-  svgEl.attr('viewBox', `0 0 ${W} ${H}`);
-  const proj = d3.geoMercator().fitSize([W, H], geoData);
-  pathGen = d3.geoPath().projection(proj);
+    if(vis && d.thumbnail){
+      // クリップパスで写真を県形に切り抜き
+      const cid='clip-'+p.id;
+      const clip=document.createElementNS('http://www.w3.org/2000/svg','clipPath');
+      clip.setAttribute('id',cid);
+      const cp=document.createElementNS('http://www.w3.org/2000/svg','path');
+      cp.setAttribute('d',pathD); clip.appendChild(cp); defs.appendChild(clip);
 
-  svgEl.selectAll('*').remove();
-  const defs = svgEl.append('defs');
-  const g = svgEl.append('g');
+      // SVGのbbox計算（一時追加して計算）
+      const tmp=document.createElementNS('http://www.w3.org/2000/svg','path');
+      tmp.setAttribute('d',pathD);
+      const svgEl=document.getElementById('map-svg');
+      svgEl.appendChild(tmp);
+      let bb; try{bb=tmp.getBBox();}catch(e){bb={x:100,y:100,width:60,height:60};}
+      svgEl.removeChild(tmp);
 
-  geoData.features.forEach(feat => {
-    const n1 = feat.properties.name_1 || feat.properties.NAME_1 || '';
-    const pid = NAME_MAP[n1];
-    if (!pid) return;
-    const pInfo = PREFS.find(p => p.id===pid);
-    if (!pInfo) return;
+      // ベース色
+      const bg=document.createElementNS('http://www.w3.org/2000/svg','path');
+      bg.setAttribute('d',pathD); bg.setAttribute('fill','#1D9E75');
+      bg.setAttribute('stroke','#0a5c40'); bg.setAttribute('stroke-width','1');
+      g.appendChild(bg);
 
-    const visited = isVisited(pid);
-    const wished = wishList[pid];
-    const data = prefData[pid] || {};
+      // 写真
+      const img=document.createElementNS('http://www.w3.org/2000/svg','image');
+      img.setAttribute('href',d.thumbnail);
+      img.setAttribute('x',bb.x); img.setAttribute('y',bb.y);
+      img.setAttribute('width',bb.width); img.setAttribute('height',bb.height);
+      img.setAttribute('preserveAspectRatio','xMidYMid slice');
+      img.setAttribute('clip-path',`url(#${cid})`);
+      g.appendChild(img);
 
-    if (visited && data.thumbnail) {
-      // クリップで写真を県の形に切り抜く
-      const clipId = 'clip-' + pid;
-      const clip = defs.append('clipPath').attr('id', clipId);
-      clip.append('path').attr('d', pathGen(feat));
-      const [[x0,y0],[x1,y1]] = pathGen.bounds(feat);
-
-      g.append('path').datum(feat).attr('d', pathGen)
-        .attr('fill','#1D9E75').attr('stroke','#0a5c40').attr('stroke-width', 0.8);
-
-      g.append('image')
-        .attr('href', data.thumbnail)
-        .attr('x',x0).attr('y',y0).attr('width',x1-x0).attr('height',y1-y0)
-        .attr('preserveAspectRatio','xMidYMid slice')
-        .attr('clip-path',`url(#${clipId})`);
-
-      g.append('path').datum(feat).attr('d', pathGen)
-        .attr('fill','transparent').attr('stroke','#0a5c40').attr('stroke-width',1)
-        .attr('class','pref')
-        .on('click', ()=>openModal(pInfo))
-        .on('mousemove', ev=>showTip(ev,dispName(pInfo)))
-        .on('mouseleave', hideTip);
+      // クリック用透明パス
+      const ov=document.createElementNS('http://www.w3.org/2000/svg','path');
+      ov.setAttribute('d',pathD); ov.setAttribute('fill','transparent');
+      ov.setAttribute('stroke','#0a5c40'); ov.setAttribute('stroke-width','1');
+      ov.setAttribute('class','pref');
+      ov.addEventListener('click',()=>openModal(p));
+      ov.addEventListener('mousemove',ev=>showTip(ev,dispName(p)));
+      ov.addEventListener('mouseleave',hideTip);
+      g.appendChild(ov);
     } else {
-      const fill = visited ? '#9FE1CB' : wished ? '#FAEEDA' : '#c5dde5';
-      const stroke = visited ? '#1D9E75' : wished ? '#EF9F27' : '#90b8c4';
-      g.append('path').datum(feat).attr('d', pathGen)
-        .attr('fill', fill).attr('stroke', stroke)
-        .attr('stroke-width', (visited||wished) ? 1.2 : 0.5)
-        .attr('class','pref')
-        .on('click', ()=>openModal(pInfo))
-        .on('mousemove', ev=>showTip(ev,dispName(pInfo)))
-        .on('mouseleave', hideTip);
+      const fill = vis ? '#9FE1CB' : wish ? '#FAEEDA' : '#daeef4';
+      const stroke = vis ? '#1D9E75' : wish ? '#EF9F27' : '#a0c8d4';
+      const sw = (vis||wish) ? 1.2 : 0.5;
+      const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',pathD); path.setAttribute('fill',fill);
+      path.setAttribute('stroke',stroke); path.setAttribute('stroke-width',sw);
+      path.setAttribute('class','pref');
+      path.addEventListener('click',()=>openModal(p));
+      path.addEventListener('mousemove',ev=>showTip(ev,dispName(p)));
+      path.addEventListener('mouseleave',hideTip);
+      g.appendChild(path);
     }
 
-    // ラベル（面積で判定）
-    const area = pathGen.area(feat);
-    if (area > 350) {
-      const [cx, cy] = pathGen.centroid(feat);
-      const fs = area > 5000 ? 10 : area > 1500 ? 8 : 7;
-      g.append('text')
-        .attr('x',cx).attr('y',cy)
-        .attr('text-anchor','middle').attr('dominant-baseline','middle')
-        .attr('class','pref-label')
-        .attr('font-size', fs)
-        .attr('fill', visited && data.thumbnail ? 'white' : visited ? '#085041' : wished ? '#854F0B' : '#4a7a88')
-        .attr('font-weight', visited ? '700' : '500')
-        .text(pInfo.name);
-    }
+    // ラベル
+    const lp=LABEL_POS[p.id];
+    const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x',lp.x); t.setAttribute('y',lp.y);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
+    t.setAttribute('class','pref-lbl');
+    const area = estimateArea(pathD);
+    t.setAttribute('font-size', area > 3000 ? 9 : area > 800 ? 7.5 : 6.5);
+    t.setAttribute('fill', vis&&d.thumbnail?'white': vis?'#085041': wish?'#854F0B':'#4a7a88');
+    t.setAttribute('font-weight', vis?'700':'500');
+    t.setAttribute('pointer-events','none');
+    t.textContent=p.name;
+    lg.appendChild(t);
   });
 }
 
-function showTip(ev, name) {
-  const tip = document.getElementById('tooltip');
-  const rect = document.getElementById('map-container').getBoundingClientRect();
-  tip.textContent = name;
-  tip.style.display = 'block';
-  let x = ev.clientX - rect.left + 12, y = ev.clientY - rect.top - 36;
-  if (x + 130 > rect.width) x = ev.clientX - rect.left - 140;
-  tip.style.left = x+'px'; tip.style.top = y+'px';
-}
-function hideTip() { document.getElementById('tooltip').style.display='none'; }
-
-// ── 一覧 ──
-function renderList() {
-  const wrap = document.getElementById('list-wrap');
-  const vis = PREFS.filter(p=>isVisited(p.id));
-  const wish = PREFS.filter(p=>wishList[p.id]&&!isVisited(p.id));
-  if (!vis.length && !wish.length) {
-    wrap.innerHTML = '<div class="empty">まだ記録がありません 🗺️<br>地図をタップして旅の思い出を残そう！</div>'; return;
+function estimateArea(d){
+  // パスのおおよその面積をバウンディングボックスから推定
+  const nums=d.match(/[\d.]+/g).map(Number);
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(let i=0;i<nums.length-1;i+=2){
+    if(nums[i]<minX)minX=nums[i]; if(nums[i]>maxX)maxX=nums[i];
+    if(nums[i+1]<minY)minY=nums[i+1]; if(nums[i+1]>maxY)maxY=nums[i+1];
   }
-  let html = '';
-  if (vis.length) {
-    html += `<div class="section-head">訪問済み (${vis.length})</div>`;
+  return (maxX-minX)*(maxY-minY);
+}
+
+// Tooltip
+function showTip(ev,name){
+  const tip=document.getElementById('tip');
+  const wrap=document.getElementById('map-wrap');
+  const rect=wrap.getBoundingClientRect();
+  tip.textContent=name; tip.style.display='block';
+  let x=ev.clientX-rect.left+12, y=ev.clientY-rect.top-36;
+  if(x+130>rect.width) x=ev.clientX-rect.left-140;
+  if(y<0) y=ev.clientY-rect.top+14;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+function hideTip(){document.getElementById('tip').style.display='none';}
+
+// ===== 一覧 =====
+function renderList(){
+  const wrap=document.getElementById('list-wrap');
+  const vis=PREFS.filter(p=>isVis(p.id));
+  const wish=PREFS.filter(p=>wishList[p.id]&&!isVis(p.id));
+  if(!vis.length&&!wish.length){wrap.innerHTML='<div class="empty">まだ記録がありません 🗺️<br>地図をタップして旅の思い出を残そう！</div>';return;}
+  let html='';
+  if(vis.length){
+    html+=`<div class="sh">訪問済み (${vis.length})</div>`;
     vis.sort((a,b)=>(prefData[b.id]?.date||'').localeCompare(prefData[a.id]?.date||'')).forEach(p=>{
       const d=prefData[p.id];
-      const thumb = d.thumbnail ? `<img class="card-thumb" src="${d.thumbnail}">` : `<div class="card-no-thumb">🗾</div>`;
-      const ds = d.date ? new Date(d.date+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}) : '';
-      html += `<div class="pref-card" onclick="openById('${p.id}')">${thumb}<div class="card-body"><div class="card-name">${dispName(p)}</div>${ds?`<div class="card-date">${ds}</div>`:''}${d.memo?`<div class="card-memo">${d.memo}</div>`:''}${d.photos?.length?`<div class="card-photos">写真 ${d.photos.length}枚</div>`:''}</div></div>`;
+      const th=d.thumbnail?`<img class="pt" src="${d.thumbnail}">`:`<div class="pn">🗾</div>`;
+      const ds=d.date?new Date(d.date+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}):'';
+      html+=`<div class="pc" onclick="openById('${p.id}')">${th}<div class="pb"><div class="pb-name">${dispName(p)}</div>${ds?`<div class="pb-date">${ds}</div>`:''}${d.memo?`<div class="pb-memo">${d.memo}</div>`:''}${d.photos?.length?`<div class="pb-ph">写真 ${d.photos.length}枚</div>`:''}</div></div>`;
     });
   }
-  if (wish.length) {
-    html += `<div class="section-head">行きたいリスト (${wish.length})</div>`;
-    wish.forEach(p=>{html+=`<div class="pref-card" onclick="openById('${p.id}')"><div class="card-no-thumb">⭐</div><div class="card-body"><div class="card-name">${dispName(p)}</div><div class="card-date" style="color:var(--amber-dark)">行きたい！</div></div></div>`;});
+  if(wish.length){
+    html+=`<div class="sh">行きたいリスト (${wish.length})</div>`;
+    wish.forEach(p=>{html+=`<div class="pc" onclick="openById('${p.id}')"><div class="pn">⭐</div><div class="pb"><div class="pb-name">${dispName(p)}</div><div class="pb-date" style="color:var(--amber-d)">行きたい！</div></div></div>`;});
   }
-  wrap.innerHTML = html;
+  wrap.innerHTML=html;
 }
 
-// ── 行きたい ──
-function renderWish() {
-  document.getElementById('wish-grid').innerHTML = PREFS.map(p=>{
-    const on=wishList[p.id], vis=isVisited(p.id);
-    return `<div class="wish-item${on?' on':''}${vis?' vis':''}" onclick="toggleWish('${p.id}')">${on?'<div class="wi-badge">⭐</div>':''}${vis?'<div class="wi-badge" style="color:var(--green)">✓</div>':''}<div class="wi-name">${p.name}</div><div class="wi-en">${p.en}</div></div>`;
+// ===== 行きたい =====
+function renderWish(){
+  document.getElementById('wish-grid').innerHTML=PREFS.map(p=>{
+    const on=wishList[p.id],vis=isVis(p.id);
+    return`<div class="wi${on?' on':''}${vis?' vis':''}" onclick="toggleWish('${p.id}')">${on?'<div class="wib">⭐</div>':''}${vis?'<div class="wib" style="color:var(--green)">✓</div>':''}<div class="win">${p.name}</div><div class="wie">${p.en}</div></div>`;
   }).join('');
 }
-window.toggleWish = id=>{
-  wishList[id]=!wishList[id]; if(!wishList[id]) delete wishList[id];
-  saveData(); updateCounts(); renderWish(); renderList(); drawMap();
+window.toggleWish=id=>{
+  wishList[id]=!wishList[id]; if(!wishList[id])delete wishList[id];
+  save(); updateCounts(); renderWish(); renderList(); drawMap();
 };
 
-// ── モーダル ──
-let curPref=null, curPhotos=[];
-window.openById = id=>{ const p=PREFS.find(x=>x.id===id); if(p) openModal(p); };
+// ===== モーダル =====
+let curP=null,curPh=[];
+window.openById=id=>{const p=PREFS.find(x=>x.id===id);if(p)openModal(p);};
 
-function openModal(pref) {
-  curPref=pref;
-  const data=prefData[pref.id]||{};
-  curPhotos=(data.photos||[]).map(x=>({...x}));
+function openModal(pref){
+  curP=pref; const d=prefData[pref.id]||{};
+  curPh=(d.photos||[]).map(x=>({...x}));
   document.getElementById('m-name').textContent=dispName(pref);
   document.getElementById('m-en').textContent=pref.en;
-  document.getElementById('m-date').value=data.date||'';
-  document.getElementById('m-memo').value=data.memo||'';
+  document.getElementById('m-date').value=d.date||'';
+  document.getElementById('m-memo').value=d.memo||'';
   renderPhotos();
-  document.getElementById('pref-modal').classList.add('open');
+  document.getElementById('pref-ov').classList.add('open');
 }
 
-function renderPhotos() {
+function renderPhotos(){
   const grid=document.getElementById('m-photos');
-  const thumbId=(prefData[curPref.id]||{}).thumbnailId;
+  const tid=(prefData[curP.id]||{}).thumbnailId;
   grid.innerHTML='';
-  document.getElementById('m-pcount').textContent=curPhotos.length?`${curPhotos.length}枚`:'';
-  curPhotos.forEach((ph,i)=>{
+  document.getElementById('m-pc').textContent=curPh.length?`${curPh.length}枚`:'';
+  curPh.forEach((ph,i)=>{
     const div=document.createElement('div');
-    div.className='pt'+(ph.id===thumbId?' sel':'');
-    const img=document.createElement('img'); img.src=ph.data; div.appendChild(img);
-    if(ph.id===thumbId){const b=document.createElement('div');b.className='pt-badge';b.textContent='サムネ';div.appendChild(b);}
-    const del=document.createElement('button'); del.className='pt-del'; del.textContent='×';
-    del.onclick=e=>{e.stopPropagation();curPhotos.splice(i,1);renderPhotos();};
+    div.className='pit'+(ph.id===tid?' sel':'');
+    const img=document.createElement('img');img.src=ph.data;div.appendChild(img);
+    if(ph.id===tid){const b=document.createElement('div');b.className='pt-b';b.textContent='サムネ';div.appendChild(b);}
+    const del=document.createElement('button');del.className='pt-d';del.textContent='×';
+    del.onclick=e=>{e.stopPropagation();curPh.splice(i,1);renderPhotos();};
     div.appendChild(del);
-    div.onclick=()=>{
-      if(!prefData[curPref.id])prefData[curPref.id]={};
-      prefData[curPref.id].thumbnailId=ph.id; prefData[curPref.id].thumbnail=ph.data;
-      renderPhotos();
-    };
+    div.onclick=()=>{if(!prefData[curP.id])prefData[curP.id]={};prefData[curP.id].thumbnailId=ph.id;prefData[curP.id].thumbnail=ph.data;renderPhotos();};
     grid.appendChild(div);
   });
-  const add=document.createElement('div'); add.className='pt add';
+  const add=document.createElement('div');add.className='pit add';
   add.innerHTML='<span>+</span><p>写真を追加</p>';
   add.onclick=()=>document.getElementById('m-file').click();
   grid.appendChild(add);
 }
 
-document.getElementById('m-file').addEventListener('change', e=>{
+document.getElementById('m-file').addEventListener('change',e=>{
   Array.from(e.target.files).forEach(f=>{
-    const r=new FileReader(); r.onload=ev=>{curPhotos.push({id:Date.now()+Math.random(),data:ev.target.result});renderPhotos();};
-    r.readAsDataURL(f);
-  }); e.target.value='';
+    const r=new FileReader();r.onload=ev=>{curPh.push({id:Date.now()+Math.random(),data:ev.target.result});renderPhotos();};r.readAsDataURL(f);
+  });e.target.value='';
 });
 
-document.getElementById('m-save').addEventListener('click', ()=>{
-  if(!prefData[curPref.id])prefData[curPref.id]={};
-  const d=prefData[curPref.id];
+document.getElementById('m-save').addEventListener('click',()=>{
+  if(!prefData[curP.id])prefData[curP.id]={};
+  const d=prefData[curP.id];
   d.date=document.getElementById('m-date').value;
   d.memo=document.getElementById('m-memo').value;
-  d.photos=curPhotos;
-  if(!d.thumbnailId&&curPhotos.length){d.thumbnailId=curPhotos[0].id;d.thumbnail=curPhotos[0].data;}
-  if(d.thumbnailId){
-    const f=curPhotos.find(x=>x.id===d.thumbnailId);
-    if(f)d.thumbnail=f.data;
-    else if(curPhotos.length){d.thumbnailId=curPhotos[0].id;d.thumbnail=curPhotos[0].data;}
-    else{d.thumbnail=null;d.thumbnailId=null;}
-  }
-  saveData(); updateCounts(); drawMap(); renderList(); renderWish();
-  document.getElementById('pref-modal').classList.remove('open');
+  d.photos=curPh;
+  if(!d.thumbnailId&&curPh.length){d.thumbnailId=curPh[0].id;d.thumbnail=curPh[0].data;}
+  if(d.thumbnailId){const f=curPh.find(x=>x.id===d.thumbnailId);if(f)d.thumbnail=f.data;else if(curPh.length){d.thumbnailId=curPh[0].id;d.thumbnail=curPh[0].data;}else{d.thumbnail=null;d.thumbnailId=null;}}
+  save();updateCounts();drawMap();renderList();renderWish();
+  document.getElementById('pref-ov').classList.remove('open');
 });
 
-document.getElementById('m-del').addEventListener('click', ()=>{
-  if(confirm(dispName(curPref)+'の記録を削除しますか？')){
-    delete prefData[curPref.id]; saveData(); updateCounts(); drawMap(); renderList(); renderWish();
-    document.getElementById('pref-modal').classList.remove('open');
+document.getElementById('m-del').addEventListener('click',()=>{
+  if(confirm(dispName(curP)+'の記録を削除しますか？')){
+    delete prefData[curP.id];save();updateCounts();drawMap();renderList();renderWish();
+    document.getElementById('pref-ov').classList.remove('open');
   }
 });
-document.getElementById('m-close').addEventListener('click',()=>document.getElementById('pref-modal').classList.remove('open'));
-document.getElementById('pref-modal').addEventListener('click',e=>{if(e.target===document.getElementById('pref-modal'))document.getElementById('pref-modal').classList.remove('open');});
+document.getElementById('m-close').addEventListener('click',()=>document.getElementById('pref-ov').classList.remove('open'));
+document.getElementById('pref-ov').addEventListener('click',e=>{if(e.target===document.getElementById('pref-ov'))document.getElementById('pref-ov').classList.remove('open');});
 
-// ── 共有 ──
-document.getElementById('btn-share').addEventListener('click',()=>document.getElementById('share-modal').classList.add('open'));
-document.getElementById('sh-close').addEventListener('click',()=>document.getElementById('share-modal').classList.remove('open'));
-document.getElementById('share-modal').addEventListener('click',e=>{if(e.target===document.getElementById('share-modal'))document.getElementById('share-modal').classList.remove('open');});
-
+// ===== 共有 =====
+document.getElementById('btn-share').addEventListener('click',()=>document.getElementById('share-ov').classList.add('open'));
+document.getElementById('sh-close').addEventListener('click',()=>document.getElementById('share-ov').classList.remove('open'));
+document.getElementById('share-ov').addEventListener('click',e=>{if(e.target===document.getElementById('share-ov'))document.getElementById('share-ov').classList.remove('open');});
 document.getElementById('sh-text').addEventListener('click',()=>{
-  const vis=PREFS.filter(p=>isVisited(p.id));
+  const vis=PREFS.filter(p=>isVis(p.id));
   if(!vis.length){alert('まだ訪問済みの記録がありません');return;}
   let t='🗾 ふたりの旅記録\n訪問済み: '+vis.length+' / 47 都道府県\n\n';
   vis.sort((a,b)=>(prefData[a.id]?.date||'').localeCompare(prefData[b.id]?.date||'')).forEach(p=>{
-    const d=prefData[p.id]; t+='📍 '+dispName(p)+'\n';
+    const d=prefData[p.id];t+='📍 '+dispName(p)+'\n';
     if(d.date)t+='   日付: '+new Date(d.date+'T00:00:00').toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'})+'\n';
     if(d.memo)t+='   メモ: '+d.memo+'\n';
-    if(d.photos?.length)t+='   写真: '+d.photos.length+'枚\n'; t+='\n';
+    if(d.photos?.length)t+='   写真: '+d.photos.length+'枚\n';t+='\n';
   });
   const wl=PREFS.filter(p=>wishList[p.id]);
   if(wl.length){t+='\n⭐ 行きたいリスト ('+wl.length+'件)\n';wl.forEach(p=>{t+='   '+dispName(p)+'\n';});}
-  navigator.clipboard.writeText(t).then(()=>{alert('コピーしました！');document.getElementById('share-modal').classList.remove('open');}).catch(()=>prompt('コピーしてください:',t));
+  navigator.clipboard.writeText(t).then(()=>{alert('コピーしました！');document.getElementById('share-ov').classList.remove('open');}).catch(()=>prompt('コピーしてください:',t));
 });
 document.getElementById('sh-ss').addEventListener('click',()=>{
   alert('スマホ：ホーム＋電源ボタン\nMac：⌘+Shift+4\nWindows：Win+Shift+S');
-  document.getElementById('share-modal').classList.remove('open');
+  document.getElementById('share-ov').classList.remove('open');
 });
 
-// ── タブ ──
+// ===== タブ =====
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -520,8 +529,8 @@ document.querySelectorAll('.tab').forEach(tab=>{
   });
 });
 
-// ── 初期化 ──
-loadData(); updateCounts(); renderWish(); initMap();
+// ===== 初期化 =====
+load(); updateCounts(); drawMap(); renderWish();
 </script>
 </body>
 </html>
